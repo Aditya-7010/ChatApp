@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  
+  {% block head %}
+    <title>ChatApp Navbar</title>
+    {% endblock  %}
+  <link rel="stylesheet" href="{% static 'css/style.css' %}"> 
+  
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="logo">ChatApp</div>
+    <div class="nav-items">
+      <button>Register</button>
+      <button>Login</button>
+      <button>Logout</button>
+      <div class="profile">
+        <span>👤</span>
+        <!-- Or use an image: <img src="profile.jpg" alt="Profile" /> -->
+      </div>
+    </div>
+  </nav>
+
+  {% block content %}
+  {% endblock  %}
+</body>
+</html>
