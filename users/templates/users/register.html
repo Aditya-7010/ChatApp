@@ -5,5 +5,9 @@
 {% endblock  %}
 
 {% block content %}
-    <h1>Welcome new user. We are eager to let you in our family.</h1>
+    <form action="/users/register/" class="register_form" method="post">
+        {% csrf_token %}
+        {{form}}
+        <button class="submit_button">Submit</button>
+    </form>
 {% endblock  %}
