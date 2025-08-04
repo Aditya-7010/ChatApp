@@ -6,8 +6,9 @@ from django.contrib.auth import login, logout
 def register(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
-        if form.is_valid:
-            login(request, form.save())
+        if form.is_valid():
+            form.save()
+            login(request)
             return redirect('/')
     else:
         form = UserCreationForm()
