@@ -7,15 +7,27 @@ def register(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
-            form.save()
-            login(request)
+            login(request, form.save())
             return redirect('/')
     else:
         form = UserCreationForm()
     return render(request, "users/register.html", {'form': form})
 
-def login(request):
-    return render(request, "users/login.html")
+def login_page(request):
+    if request.method == "POST":
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            login(request, form.get_user())
+            return redirect('/')
+    else:
+        form = AuthenticationForm()
+    return render(request, "users/login.html", {'form' : form})
 
 def profile_page(request):
     return render(request, "users/profile_page.html")
+
+
+def logout_user(request):
+    if request.method == "POST":
+        logout(request)
+    return redirect('/')

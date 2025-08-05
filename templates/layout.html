@@ -18,7 +18,10 @@
     <div class="nav-items">
       <button>Register</button>
       <button>Login</button>
-      <button>Logout</button>
+      <form action={% url "users:logout_user" %}, method="post">
+        {% csrf_token %}
+        <button>Logout</button>
+      </form>
       <div class="profile">
         <span>👤</span>
         <!-- Or use an image: <img src="profile.jpg" alt="Profile" /> -->
