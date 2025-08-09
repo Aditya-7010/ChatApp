@@ -16,12 +16,18 @@
   <nav class="navbar">
     <div class="logo">ChatApp</div>
     <div class="nav-items">
-      <button>Register</button>
-      <button>Login</button>
-      <form action="/users/logout_user/", method="post">
-        {% csrf_token %}
-        <button>Logout</button>
-      </form> 
+      {% if not user.is_authenticated %}
+        <button><a href="/users/register/">Register</a></button>
+      {% endif %}
+      {% if not user.is_authenticated %}
+        <button><a href="/users/login/">Login</a></button>
+      {% endif %}
+      {% if user.is_authenticated %}
+        <form action="/users/logout_user/", method="post">
+          {% csrf_token %}
+          <button>Logout</button>
+        </form> 
+      {% endif %}
       <div class="profile">
         <span>👤</span>
         <!-- Or use an image: <img src="profile.jpg" alt="Profile" /> -->
