@@ -30,4 +30,4 @@ def profile_page(request):
 def logout_user(request):
     if request.method == "POST":
         logout(request)
-    return redirect('/')
+    return redirect('/users/login')
