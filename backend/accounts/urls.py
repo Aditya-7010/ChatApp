@@ -6,4 +6,6 @@ urlpatterns = [
     path('register/', views.register_user, name='register'),
     # This creates the /contacts/ endpoint
     path('contacts/', views.get_contacts, name='contacts'),
+    
+    path('login/', views.login_user, name='login'), # <-- Add this line!
 ]

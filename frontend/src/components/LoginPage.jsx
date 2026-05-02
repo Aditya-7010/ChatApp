@@ -15,7 +15,7 @@ function LoginPage({ onLogin }) {
     try {
       // Send the username and password to your Django backend URL
       // Make sure to replace this URL with your actual Django login endpoint
-      const response = await fetch('http://localhost:8000/api/login/', {
+      const response = await fetch('http://127.0.0.1:8000/api/accounts/login/',  {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,4 @@
+from django.contrib.auth import authenticate
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
@@ -31,3 +32,23 @@ def get_contacts(request):
     
     # 3. Send the translated list back to the internet
     return Response(serializer.data)
+
+@api_view(['POST'])
+def login_user(request):
+    # 1. Grab the username and password from React
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    # 2. Ask Django to verify if they match the database
+    user = authenticate(username=username, password=password)
+
+    # 3. If they match, send a success message back!
+    if user is not None:
+        return Response({
+            "message": "Login successful!", 
+            "id": user.id, 
+            "username": user.username
+        })
+    else:
+        # 4. If they don't match, send an error
+        return Response({"error": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
