@@ -1,3 +1,5 @@
+from .serializers import UserSerializer, ContactSerializer, MessageSerializer
+from .models import CustomUser, Message
 from django.contrib.auth import authenticate
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -52,3 +54,10 @@ def login_user(request):
     else:
         # 4. If they don't match, send an error
         return Response({"error": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+@api_view(['GET'])
+def get_messages(request):
+    # Grab the last 50 messages from the database, ordered by oldest to newest
+    messages = Message.objects.all().order_by('timestamp')[:50]
+    serializer = MessageSerializer(messages, many=True)
+    return Response(serializer.data)

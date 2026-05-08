@@ -1,3 +1,4 @@
+from .models import Message
 from rest_framework import serializers
 from .models import CustomUser
 
@@ -19,3 +20,8 @@ class ContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['id', 'username']
+
+class MessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['id', 'sender', 'text', 'timestamp']

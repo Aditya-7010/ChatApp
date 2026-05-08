@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -71,7 +72,9 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'backend.wsgi.application'
+#WSGI_APPLICATION = 'backend.wsgi.application'
+# WSGI_APPLICATION = 'backend.wsgi.application'
+ASGI_APPLICATION = 'backend.asgi.application' # <-- Add this line!
 
 
 # Database
@@ -130,3 +133,10 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # This tells Django to let your React frontend connect during development
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Tells Django Channels to use computer memory to store live chat messages
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}

@@ -2,11 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mail, Lock, LogIn, Send, LogOut, User, MessageSquare } from 'lucide-react';  
 
 function ChatPage({ user, onLogout }) {
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Hey! Welcome to the chat.", sender: 'system', time: '10:00 AM' },
-  ]);
+  // We start with an empty array now, no fake system message needed
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  
   const messagesEndRef = useRef(null);
+  
+  // 🔴 WEBSOCKET: Create a reference to hold our live pipe
+  const ws = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -16,27 +19,82 @@ function ChatPage({ user, onLogout }) {
     scrollToBottom();
   }, [messages]);
 
+  // 🔴 NEW: Fetch chat history when the page loads
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/accounts/messages/');
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Format the database messages to match our React layout
+          const formattedMessages = data.map(msg => ({
+            id: msg.id,
+            text: msg.text,
+            sender: msg.sender === user?.name ? 'me' : msg.sender,
+            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }));
+          
+          setMessages(formattedMessages);
+        }
+      } catch (error) {
+        console.error("Failed to load history:", error);
+      }
+    };
+
+    fetchHistory();
+  }, [user]); // Re-run if the user changes
+
+  // 🔴 WEBSOCKET: Open the pipe as soon as the ChatPage loads!
+  useEffect(() => {
+    // Connect to Django's WebSocket URL (assuming a room named 'general')
+    const wsUrl = `ws://127.0.0.1:8000/ws/chat/general/`;
+    ws.current = new WebSocket(wsUrl);
+
+    ws.current.onopen = () => {
+      console.log("🟢 Connected to Django WebSockets!");
+    };
+
+    // When a message comes flying out of the pipe from Django
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      const newMsgObj = {
+        id: Date.now(),
+        text: data.message,
+        // If the sender matches my username, mark it as 'me', otherwise 'other'
+        sender: data.sender === user?.name ? 'me' : data.sender,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      // Add the new message to our list so React draws it
+      setMessages((prev) => [...prev, newMsgObj]);
+    };
+
+    ws.current.onclose = () => {
+      console.log("🔴 Disconnected from Django WebSockets.");
+    };
+
+    // Close the pipe when we leave the chat page
+    return () => {
+      if (ws.current) ws.current.close();
+    };
+  }, [user]);
+
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    const newMsgObj = {
-      id: Date.now(),
-      text: newMessage,
-      sender: 'me',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages((prev) => [...prev, newMsgObj]);
-    setNewMessage('');
-
-    // Simulate a reply
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev, 
-        { id: Date.now(), text: "I received your message!", sender: 'other', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-      ]);
-    }, 1000);
+    // 🔴 WEBSOCKET: Instead of updating the screen immediately and faking a reply, 
+    // we just shove the text down the pipe. The onmessage function above will catch 
+    // it when it bounces back from Django and draw it on the screen!
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        message: newMessage,
+        sender: user?.name || 'Anonymous' // Send our username so others know who typed it
+      }));
+      setNewMessage(''); // Clear the input box
+    }
   };
 
   return (
@@ -47,10 +105,10 @@ function ChatPage({ user, onLogout }) {
         <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-indigo-600 text-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white text-indigo-600 rounded-full flex items-center justify-center font-bold text-lg">
-              {user?.name?.charAt(0).toUpperCase()}
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div>
-              <p className="font-semibold">{user?.name}</p>
+              <p className="font-semibold">{user?.name || 'Guest'}</p>
               <p className="text-xs text-indigo-200 border-green-400">Online</p>
             </div>
           </div>
@@ -65,7 +123,7 @@ function ChatPage({ user, onLogout }) {
             </div>
             <div className="flex-1">
               <h4 className="font-medium text-gray-900">General Room</h4>
-              <p className="text-sm text-gray-500 truncate">I received your message!</p>
+              <p className="text-sm text-gray-500 truncate">Connected to live chat</p>
             </div>
           </div>
         </div>
@@ -99,7 +157,10 @@ function ChatPage({ user, onLogout }) {
         <div className="hidden md:flex p-6 bg-white border-b border-gray-200 items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-800">General Room</h2>
-            <p className="text-sm text-gray-500">3 members online</p>
+            <p className="text-sm text-gray-500 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              Live Connection
+            </p>
           </div>
         </div>
 
@@ -117,6 +178,10 @@ function ChatPage({ user, onLogout }) {
                     : 'bg-white text-gray-800 border border-gray-100 rounded-tl-sm'
                 }`}
               >
+                {/* Show the sender's name if it's someone else! */}
+                {msg.sender !== 'me' && (
+                  <p className="text-xs font-bold text-indigo-600 mb-1">{msg.sender}</p>
+                )}
                 <p className="text-sm md:text-base">{msg.text}</p>
               </div>
               <span className="text-xs text-gray-400 mt-1 mx-1">{msg.time}</span>

@@ -7,3 +7,17 @@ class CustomUser(AbstractUser):
     
     def __str__(self):
         return self.username
+    # Leave your CustomUser code above this!
+
+class Message(models.Model):
+    # 1. The sender's name
+    sender = models.CharField(max_length=150)
+    
+    # 2. The text of the message
+    text = models.TextField()
+    
+    # 3. A timestamp that automatically records the exact second it was created
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.sender}: {self.text}"

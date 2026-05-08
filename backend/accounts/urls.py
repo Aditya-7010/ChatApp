@@ -8,4 +8,6 @@ urlpatterns = [
     path('contacts/', views.get_contacts, name='contacts'),
     
     path('login/', views.login_user, name='login'), # <-- Add this line!
+
+    path('messages/', views.get_messages, name='messages'),
 ]
