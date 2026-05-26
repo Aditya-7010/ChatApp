@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Lock, LogIn, UserPlus, User, MessageSquare, AtSign, Mail, Users, Calendar } from 'lucide-react';
+// FIX 1: Cleaned up duplicate 'Lock' import here
+import { LogIn, UserPlus, User, MessageSquare, AtSign, Mail, Users, Calendar, Lock, Eye, EyeOff } from 'lucide-react';
 
 function LoginPage({ onLogin }) {
   // Toggle between Login and Register
@@ -12,7 +13,7 @@ function LoginPage({ onLogin }) {
   const [age, setAge] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [showPassword, setShowPassword] = useState(false);
   // UI State
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -185,21 +186,37 @@ function LoginPage({ onLogin }) {
             )}
             {/* 👆 END OF SIGN UP ONLY FIELDS 👆 */}
 
-            {/* 6. Password (ALWAYS VISIBLE) */}
+            {/* 6. Password with Toggle */}
             <div className="relative">
+              {/* Left Lock Icon */}
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock className="h-5 w-5 text-gray-400" />
               </div>
+              
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                className="block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
                 placeholder="Password"
                 required
               />
+
+              {/* Right Show/Hide Button */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
-          </div>
+
+          </div> {/* FIX 2: This closed tag balances the fields layout div cleanly */}
 
           {/* Submit Button */}
           <button
@@ -225,7 +242,7 @@ function LoginPage({ onLogin }) {
                 type="button"
                 onClick={() => {
                   setIsLoginMode(!isLoginMode);
-                  setError(''); // Clear errors when switching modes
+                  setError('');
                 }}
                 className="text-indigo-600 font-semibold hover:text-indigo-800 transition-colors"
               >
