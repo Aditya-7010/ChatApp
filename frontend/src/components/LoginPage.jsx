@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { Lock, LogIn, UserPlus, User, MessageSquare } from 'lucide-react';  
+import { Lock, LogIn, UserPlus, User, MessageSquare, AtSign, Mail, Users, Calendar } from 'lucide-react';
 
 function LoginPage({ onLogin }) {
-  // NEW STATE: Are we logging in or registering?
+  // Toggle between Login and Register
   const [isLoginMode, setIsLoginMode] = useState(true); 
   
+  // Form State
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  
+  // UI State
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -15,30 +22,46 @@ function LoginPage({ onLogin }) {
     setError('');
     setIsLoading(true);
 
-    // DYNAMIC URL: Choose the endpoint based on the mode
+    // 1. DYNAMIC URL
     const endpoint = isLoginMode 
       ? 'http://127.0.0.1:8000/api/accounts/login/' 
       : 'http://127.0.0.1:8000/api/accounts/register/';
 
+    // 2. DYNAMIC PAYLOAD (Only send what is needed)
+    const payload = isLoginMode
+      ? { username: username, password: password }
+      : { 
+          username: username, 
+          password: password, 
+          display_name: displayName, 
+          email: email, 
+          gender: gender, 
+          age: age 
+        };
+
     try {
-      const response = await fetch(endpoint, { 
+      // 3. THE FETCH CALL
+      const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Success! Log the user in for both scenarios
+        // Success! Log the user in
         onLogin({ name: username, ...data });
       } else {
         // Error handling
-        setError(data.error || data.detail || 'Something went wrong. Please try again.');
-        
-        // If registering and the username is taken, Django sends it in an array
         if (data.username) {
           setError(`Username error: ${data.username[0]}`);
+        } else if (data.email) {
+          setError(`Email error: ${data.email[0]}`);
+        } else {
+          setError(data.error || data.detail || 'Something went wrong. Please try again.');
         }
       }
     } catch (err) {
@@ -73,22 +96,96 @@ function LoginPage({ onLogin }) {
             </div>
           )}
           
-          {/* Form Inputs (Same for both) */}
           <div className="space-y-4">
+            
+            {/* 1. Unique Handle (ALWAYS VISIBLE) */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-gray-400" />
+                <AtSign className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
-                placeholder="Username"
+                placeholder="Unique Handle (e.g., @adarsh_99)"
                 required
               />
             </div>
 
+            {/* 👇 THESE FIELDS ONLY SHOW DURING SIGN UP 👇 */}
+            {!isLoginMode && (
+              <>
+                {/* 2. Display Name */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                    placeholder="Display Name"
+                    required={!isLoginMode}
+                  />
+                </div>
+
+                {/* 3. Email */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                    placeholder="Email Address"
+                    required={!isLoginMode}
+                  />
+                </div>
+
+                {/* 4. Gender (Dropdown) */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Users className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none bg-white text-gray-500 appearance-none"
+                    required={!isLoginMode}
+                  >
+                    <option value="" disabled>Select Gender</option>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                    <option value="O">Other</option>
+                    <option value="P">Prefer not to say</option>
+                  </select>
+                </div>
+
+                {/* 5. Age */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none"
+                    placeholder="Age"
+                    min="13"
+                    max="120"
+                    required={!isLoginMode}
+                  />
+                </div>
+              </>
+            )}
+            {/* 👆 END OF SIGN UP ONLY FIELDS 👆 */}
+
+            {/* 6. Password (ALWAYS VISIBLE) */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock className="h-5 w-5 text-gray-400" />
