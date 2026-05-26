@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, MessageSquare, Plus, X, Users } from 'lucide-react';
 
-function ChatPage({ user, onLogout }) {
+function ChatPage({ user, onLogout, onNavigateToAccount }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [activeChat, setActiveChat] = useState('general');
@@ -120,18 +120,26 @@ function ChatPage({ user, onLogout }) {
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
         
         {/* User Profile Header */}
-        <div className="p-4 border-b border-gray-200 bg-indigo-600 text-white flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold">
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h3 className="font-bold">{user.name}</h3>
-              <p className="text-xs text-indigo-200">Online</p>
-            </div>
-          </div>
-          <button onClick={onLogout} className="text-xs hover:underline text-indigo-200">Logout</button>
-        </div>
+        {/* User Profile Header */}
+<div className="p-4 border-b border-gray-200 bg-indigo-600 text-white flex justify-between items-center">
+  
+  {/* MODIFIED: Wrapped user identifiers in a clickable account portal trigger */}
+  <button 
+    type="button"
+    onClick={onNavigateToAccount}
+    className="flex items-center gap-3 text-left focus:outline-none group cursor-pointer"
+  >
+    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold group-hover:bg-white/30 group-hover:scale-105 transition-all">
+      {user.name.charAt(0).toUpperCase()}
+    </div>
+    <div>
+      <h3 className="font-bold group-hover:underline decoration-indigo-200 underline-offset-2">{user.name}</h3>
+      <p className="text-xs text-indigo-200">Online • View Profile</p>
+    </div>
+  </button>
+  
+  <button onClick={onLogout} className="text-xs hover:underline text-indigo-200 z-10">Logout</button>
+</div>
 
         {/* General Room Button */}
         <div className="p-4">
