@@ -1,216 +1,263 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Lock, LogIn, Send, LogOut, User, MessageSquare } from 'lucide-react';  
+import { Send, User, MessageSquare, Plus, X, Users } from 'lucide-react';
 
 function ChatPage({ user, onLogout }) {
-  // We start with an empty array now, no fake system message needed
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  
-  const messagesEndRef = useRef(null);
-  
-  // 🔴 WEBSOCKET: Create a reference to hold our live pipe
+  const [activeChat, setActiveChat] = useState('general');
+  const [friends, setFriends] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newFriendHandle, setNewFriendHandle] = useState('');
+
   const ws = useRef(null);
+  const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+  useEffect(() => { scrollToBottom(); }, [messages]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // Calculate the current room
+  const currentRoomName = activeChat === 'general' 
+    ? 'general' 
+    : [user.name, activeChat].sort().join('_');
 
-  // 🔴 NEW: Fetch chat history when the page loads
+  // We need a ref for the current room so the WebSocket always knows where we are looking
+  const currentRoomNameRef = useRef(currentRoomName);
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/accounts/messages/');
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Format the database messages to match our React layout
-          const formattedMessages = data.map(msg => ({
-            id: msg.id,
-            text: msg.text,
-            sender: msg.sender === user?.name ? 'me' : msg.sender,
-            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }));
-          
-          setMessages(formattedMessages);
+    currentRoomNameRef.current = currentRoomName;
+  }, [currentRoomName]);
+
+  // ==========================================
+  // 1. THE GLOBAL WEBSOCKET CONNECTION
+  // ==========================================
+  useEffect(() => {
+    // We only connect ONCE using our own username
+    const wsUrl = `ws://127.0.0.1:8000/ws/chat/${user.name}/`;
+    ws.current = new WebSocket(wsUrl);
+
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const { message, sender, room_name } = data;
+
+      // WhatsApp Magic: If someone new messages us, auto-add them to the sidebar!
+      if (room_name !== 'general') {
+        const users = room_name.split('_');
+        const otherUser = users.find(u => u !== user.name);
+        
+        if (otherUser) {
+          setFriends(prev => {
+            if (!prev.includes(otherUser)) return [...prev, otherUser];
+            return prev;
+          });
         }
-      } catch (error) {
-        console.error("Failed to load history:", error);
+      }
+
+      // Only show the message on screen if we are looking at that specific room
+      if (room_name === currentRoomNameRef.current) {
+        setMessages((prev) => [...prev, data]);
+      } else {
+        console.log(`New message from ${sender} in background room: ${room_name}`);
       }
     };
 
-    fetchHistory();
-  }, [user]); // Re-run if the user changes
-
-  // 🔴 WEBSOCKET: Open the pipe as soon as the ChatPage loads!
-  useEffect(() => {
-    // Connect to Django's WebSocket URL (assuming a room named 'general')
-    const wsUrl = `ws://127.0.0.1:8000/ws/chat/general/`;
-    ws.current = new WebSocket(wsUrl);
-
-    ws.current.onopen = () => {
-      console.log("🟢 Connected to Django WebSockets!");
-    };
-
-    // When a message comes flying out of the pipe from Django
-    ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      const newMsgObj = {
-        id: Date.now(),
-        text: data.message,
-        // If the sender matches my username, mark it as 'me', otherwise 'other'
-        sender: data.sender === user?.name ? 'me' : data.sender,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      // Add the new message to our list so React draws it
-      setMessages((prev) => [...prev, newMsgObj]);
-    };
-
-    ws.current.onclose = () => {
-      console.log("🔴 Disconnected from Django WebSockets.");
-    };
-
-    // Close the pipe when we leave the chat page
     return () => {
-      if (ws.current) ws.current.close();
+      if (ws.current) {
+        ws.current.close();
+      }
     };
-  }, [user]);
+  }, [user.name]); 
 
-  const handleSendMessage = (e) => {
+  // ==========================================
+  // 2. AUTOMATIC CHAT HISTORY LOADER (Step 3)
+  // ==========================================
+  useEffect(() => {
+    const fetchChatHistory = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/accounts/messages/${currentRoomName}/`);
+        if (response.ok) {
+          const historyData = await response.json();
+          setMessages(historyData); // Populate the screen with database history!
+        }
+      } catch (err) {
+        console.error("Failed to load historical messages:", err);
+      }
+    };
+
+    fetchChatHistory();
+  }, [currentRoomName]); // Runs every single time you switch chat selections!
+
+
+  const sendMessage = (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
-
-    // 🔴 WEBSOCKET: Instead of updating the screen immediately and faking a reply, 
-    // we just shove the text down the pipe. The onmessage function above will catch 
-    // it when it bounces back from Django and draw it on the screen!
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+    if (newMessage.trim() && ws.current) {
       ws.current.send(JSON.stringify({
         message: newMessage,
-        sender: user?.name || 'Anonymous' // Send our username so others know who typed it
+        sender: user.name,
+        room_name: currentRoomName // Tell Django exactly where to route this!
       }));
-      setNewMessage(''); // Clear the input box
+      setNewMessage('');
+    }
+  };
+
+  const handleAddFriend = (e) => {
+    e.preventDefault();
+    if (newFriendHandle.trim() && !friends.includes(newFriendHandle)) {
+      setFriends([...friends, newFriendHandle.trim()]);
+      setActiveChat(newFriendHandle.trim()); 
+      setIsModalOpen(false);
+      setNewFriendHandle('');
+      setMessages([]); 
     }
   };
 
   return (
-    <div className="h-screen bg-slate-100 flex flex-col md:flex-row">
+    <div className="flex h-screen bg-slate-50 font-sans">
       
-      {/* Sidebar - Hidden on small screens for simplicity, visible on md */}
-      <div className="hidden md:flex w-80 bg-white border-r border-gray-200 flex-col">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-indigo-600 text-white">
+      {/* ========================================== */}
+      {/* SIDEBAR */}
+      {/* ========================================== */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        
+        {/* User Profile Header */}
+        <div className="p-4 border-b border-gray-200 bg-indigo-600 text-white flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white text-indigo-600 rounded-full flex items-center justify-center font-bold text-lg">
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold">
+              {user.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="font-semibold">{user?.name || 'Guest'}</p>
-              <p className="text-xs text-indigo-200 border-green-400">Online</p>
+              <h3 className="font-bold">{user.name}</h3>
+              <p className="text-xs text-indigo-200">Online</p>
             </div>
           </div>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Recent Chats</div>
-          {/* Mock Contact */}
-          <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl cursor-pointer">
-            <div className="w-12 h-12 bg-indigo-200 rounded-full flex items-center justify-center">
-              <User className="text-indigo-600 w-6 h-6" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-medium text-gray-900">General Room</h4>
-              <p className="text-sm text-gray-500 truncate">Connected to live chat</p>
-            </div>
-          </div>
+          <button onClick={onLogout} className="text-xs hover:underline text-indigo-200">Logout</button>
         </div>
 
-        <div className="p-4 border-t border-gray-200">
+        {/* General Room Button */}
+        <div className="p-4">
           <button 
-            onClick={onLogout}
-            className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors w-full p-2 rounded-lg hover:bg-red-50"
+            onClick={() => { setActiveChat('general'); setMessages([]); }}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${activeChat === 'general' ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'}`}
           >
-            <LogOut className="w-5 h-5" />
-            <span>Logout</span>
+            <Users className={`w-5 h-5 ${activeChat === 'general' ? 'text-indigo-600' : 'text-gray-400'}`} />
+            <span className="font-medium">General Room</span>
           </button>
+        </div>
+
+        {/* Direct Messages Section */}
+        <div className="px-4 pb-2 flex justify-between items-center">
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Direct Messages</h4>
+          <button onClick={() => setIsModalOpen(true)} className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-indigo-600 transition-colors">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Friends List */}
+        <div className="flex-1 overflow-y-auto px-4 space-y-1">
+          {friends.map((friend) => (
+            <button 
+              key={friend}
+              onClick={() => { setActiveChat(friend); setMessages([]); }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${activeChat === friend ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'}`}
+            >
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                {friend.charAt(0).toUpperCase()}
+              </div>
+              <span className="font-medium">{friend}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full bg-slate-50">
+      {/* ========================================== */}
+      {/* MAIN CHAT AREA */}
+      {/* ========================================== */}
+      <div className="flex-1 flex flex-col bg-slate-50">
         
-        {/* Mobile Header (Shows when Sidebar is hidden) */}
-        <div className="md:hidden p-4 bg-indigo-600 text-white flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-6 h-6" />
-            <span className="font-bold">ChatApp</span>
-          </div>
-          <button onClick={onLogout} className="text-indigo-100 hover:text-white">
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-
         {/* Chat Header */}
-        <div className="hidden md:flex p-6 bg-white border-b border-gray-200 items-center justify-between">
+        <div className="h-20 border-b border-gray-200 bg-white flex items-center px-8">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">General Room</h2>
-            <p className="text-sm text-gray-500 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              Live Connection
-            </p>
+            <h2 className="text-xl font-bold text-gray-800">
+              {activeChat === 'general' ? 'General Room' : `Chat with ${activeChat}`}
+            </h2>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+              Live Connection: {currentRoomName}
+            </div>
           </div>
         </div>
 
-        {/* Messages List */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-          {messages.map((msg) => (
-            <div 
-              key={msg.id} 
-              className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}
-            >
-              <div 
-                className={`max-w-[75%] md:max-w-[60%] p-4 rounded-2xl shadow-sm ${
-                  msg.sender === 'me' 
-                    ? 'bg-indigo-600 text-white rounded-tr-sm' 
-                    : 'bg-white text-gray-800 border border-gray-100 rounded-tl-sm'
-                }`}
-              >
-                {/* Show the sender's name if it's someone else! */}
-                {msg.sender !== 'me' && (
-                  <p className="text-xs font-bold text-indigo-600 mb-1">{msg.sender}</p>
-                )}
-                <p className="text-sm md:text-base">{msg.text}</p>
-              </div>
-              <span className="text-xs text-gray-400 mt-1 mx-1">{msg.time}</span>
+        {/* Messages Container */}
+        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-400">
+              <MessageSquare className="w-12 h-12 mb-4 opacity-20" />
+              <p>No messages here yet. Say hello!</p>
             </div>
-          ))}
+          ) : (
+            messages.map((msg, index) => {
+              const isMe = msg.sender === user.name;
+              return (
+                <div key={index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[70%] rounded-2xl px-5 py-3 shadow-sm ${isMe ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'}`}>
+                    {!isMe && <p className="text-xs font-bold text-indigo-600 mb-1">{msg.sender}</p>}
+                    <p className="leading-relaxed">{msg.message}</p>
+                  </div>
+                </div>
+              );
+            })
+          )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Message Input Area */}
+        {/* Input Area */}
         <div className="p-4 bg-white border-t border-gray-200">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2 max-w-4xl mx-auto">
+          <form onSubmit={sendMessage} className="flex gap-2 max-w-4xl mx-auto relative">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 rounded-full py-3 px-5 transition-all outline-none"
+              placeholder={`Message ${activeChat === 'general' ? 'the room' : activeChat}...`}
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-full pl-6 pr-14 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
             />
-            <button 
+            <button
               type="submit"
               disabled={!newMessage.trim()}
-              className="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
+              className="absolute right-2 top-2 bottom-2 aspect-square bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-all"
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-5 h-5 ml-1" />
             </button>
           </form>
         </div>
-
       </div>
+
+      {/* ========================================== */}
+      {/* "ADD FRIEND" MODAL */}
+      {/* ========================================== */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-96 shadow-2xl relative">
+            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-bold mb-2">Add a Friend</h3>
+            <p className="text-sm text-gray-500 mb-4">Enter your friend's unique handle to start a private chat.</p>
+            <form onSubmit={handleAddFriend}>
+              <input
+                type="text"
+                value={newFriendHandle}
+                onChange={(e) => setNewFriendHandle(e.target.value)}
+                placeholder="e.g., testuser2"
+                autoFocus
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 mb-4 focus:ring-2 focus:ring-indigo-600 outline-none"
+              />
+              <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700">
+                Start Chatting
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

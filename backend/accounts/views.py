@@ -1,18 +1,18 @@
 from django.contrib.auth import authenticate
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from django.http import JsonResponse
 from rest_framework import status
-from .serializers import UserSerializer, ContactSerializer, MessageSerializer
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
 from .models import CustomUser, Message
+from .serializers import (
+    ContactSerializer,
+    MessageSerializer,
+    UserSerializer,
+)
 
-@api_view(['POST'])
-def register_user(request):
-    serializer = UserSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response({"message": "User created successfully!"}, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# --- STEP 1: LOGIN API (With your friend's fixes to return full profile fields) ---
 @api_view(['POST'])
 def login_user(request):
     username = request.data.get('username')
@@ -34,12 +34,26 @@ def login_user(request):
     else:
         return Response({"error": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
 
+
+# --- STEP 2: REGISTRATION API ---
+@api_view(['POST'])
+def register_user(request):
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "User created successfully!"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# --- STEP 3: CONTACT LIST API ---
 @api_view(['GET'])
 def get_contacts(request):
     users = CustomUser.objects.all()
     serializer = ContactSerializer(users, many=True)
     return Response(serializer.data)
 
+
+# --- STEP 4: GLOBAL CHAT MESSAGES API (Legacy) ---
 @api_view(['GET'])
 def get_messages(request):
     messages = Message.objects.all().order_by('timestamp')[:50]
@@ -47,10 +61,26 @@ def get_messages(request):
     return Response(serializer.data)
 
 
-# --- NEW: PROFILE UPDATE ENDPOINT ---
+# --- STEP 5: WHATSAPP-STYLE ROOM MESSAGES API (Your Private Chat History) ---
+@api_view(['GET'])
+def get_room_messages(request, room_name):
+    # Fetch all messages for this specific room, ordered from oldest to newest
+    messages = Message.objects.filter(room_name=room_name).order_by('timestamp')
+    
+    # Format them cleanly into a JSON list that React understands
+    data = [
+        {
+            'sender': msg.sender,
+            'message': msg.text,
+            'room_name': msg.room_name
+        } for msg in messages
+    ]
+    return JsonResponse(data, safe=False)
+
+
+# --- STEP 6: NEW PROFILE UPDATE ENDPOINT (From your friend) ---
 @api_view(['PUT'])
 def update_profile(request):
-    # For testing simplicity without full middleware auth tokens, we fetch by username sent or match context
     username = request.data.get('username') or request.user.username
     try:
         user = CustomUser.objects.get(username=username)
@@ -72,7 +102,7 @@ def update_profile(request):
     }, status=status.HTTP_200_OK)
 
 
-# --- NEW: PASSWORD ALTERATION POPUP ENDPOINT ---
+# --- STEP 7: NEW PASSWORD ALTERATION ENDPOINT (From your friend) ---
 @api_view(['POST'])
 def change_password(request):
     username = request.data.get('username') or request.user.username
