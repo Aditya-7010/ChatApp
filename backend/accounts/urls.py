@@ -10,4 +10,7 @@ urlpatterns = [
     path('login/', views.login_user, name='login'), # <-- Add this line!
 
     path('messages/', views.get_messages, name='messages'),
+
+    # Add this line into your existing urlpatterns list:
+    path('messages/<str:room_name>/', views.get_room_messages, name='room_messages'),
 ]

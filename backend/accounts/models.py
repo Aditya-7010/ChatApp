@@ -31,14 +31,11 @@ class CustomUser(AbstractUser):
         return self.username
 
 class Message(models.Model):
-    # 1. The sender's name
+    # We add room_name so the database knows where this message belongs
+    room_name = models.CharField(max_length=255, default='general')
     sender = models.CharField(max_length=150)
-    
-    # 2. The text of the message
     text = models.TextField()
-    
-    # 3. A timestamp that automatically records the exact second it was created
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.sender}: {self.text}"
+        return f"[{self.room_name}] {self.sender}: {self.text}"
