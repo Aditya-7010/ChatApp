@@ -61,22 +61,24 @@ def get_messages(request):
     return Response(serializer.data)
 
 
-# --- STEP 5: WHATSAPP-STYLE ROOM MESSAGES API (Your Private Chat History) ---
+# --- STEP 5: WHATSAPP-STYLE ROOM MESSAGES API ---
 @api_view(['GET'])
 def get_room_messages(request, room_name):
     # Fetch all messages for this specific room, ordered from oldest to newest
     messages = Message.objects.filter(room_name=room_name).order_by('timestamp')
     
-    # Format them cleanly into a JSON list that React understands
     data = [
         {
+            'id': msg.id,
             'sender': msg.sender,
             'message': msg.text,
-            'room_name': msg.room_name
+            'room_name': msg.room_name,
+            'is_read': msg.is_read,
+            # CRUCIAL: We MUST send the timestamp to React!
+            'timestamp': msg.timestamp.isoformat() if msg.timestamp else None
         } for msg in messages
     ]
     return JsonResponse(data, safe=False)
-
 
 # --- STEP 6: NEW PROFILE UPDATE ENDPOINT (From your friend) ---
 @api_view(['PUT'])

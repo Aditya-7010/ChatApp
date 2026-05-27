@@ -34,6 +34,7 @@ class Message(models.Model):
     # We add room_name so the database knows where this message belongs
     room_name = models.CharField(max_length=255, default='general')
     sender = models.CharField(max_length=150)
+    is_read = models.BooleanField(default=False) # New field to track if the message has been read
     text = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
